@@ -1,13 +1,1 @@
-{
-  "name": "DevOps Alpine",
-  "image": "alpine:latest",
-  "features": {
-    "ghcr.io/devcontainers/features/common-utils:1": {
-      "installZsh": false,
-      "username": "nagbandi"
-    }
-  },
-  "initializeCommand": "adduser -D nagbandi && echo 'nagbandi ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers",
-  "postCreateCommand": "apk add --no-cache curl wget bash git kubectl helm py3-pip && pip install awscli",
-  "remoteUser": "nagbandi"
-}
+
