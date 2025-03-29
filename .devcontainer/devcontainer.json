@@ -1,0 +1,11 @@
+{
+  "name": "DevOps Alpine",
+  "image": "alpine:latest",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:1": {
+      "installZsh": false,
+      "username": "nagbandi"
+    }
+  },
+  "postCreateCommand": "apk add --no-cache curl wget bash git kubectl helm aws-cli"
+}
