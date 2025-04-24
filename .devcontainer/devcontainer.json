@@ -1,1 +1,14 @@
+{
+  "name": "My Codespace",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {},
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash"
+  },
+  "extensions": [
+    "ms-azuretools.vscode-docker",
+    "ms-vscode.cpptools"
+  ],
+  "postCreateCommand": "echo Welcome to Codespaces!"
+}
 
