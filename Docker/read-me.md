@@ -1,3 +1,8 @@
+## Rub dev-tools image 
+
+docker run -it --rm -v $PWD:/home/nagbandi/ nagbandi28/dev-tools:0.1
+
+
 
 ## 1. Remove Exited Containers
 

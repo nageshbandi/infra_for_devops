@@ -1,0 +1,12 @@
+# OS generated files
+.DS_Store
+
+# Shell history
+.bash_history
+
+# Terraform local plugins and state cache
+.terraform.d/
+.terraform/
+*.tfstate
+*.tfstate.backup
+

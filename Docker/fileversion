@@ -1,0 +1,112 @@
+# ---------- 1. Builder Stage ----------
+FROM alpine:3.20 AS builder
+
+# Arguments for versions
+ARG DOCKER_VERSION=25.0.3
+ARG KUBECTL_VERSION=1.30.1
+ARG KIND_VERSION=0.23.0
+ARG TERRAFORM_VERSION=1.8.5
+ARG TERRAGRUNT_VERSION=0.48.0
+ARG KAFKA_VERSION=3.6.2
+ARG KAFKA_SCALA_VERSION=2.13
+ARG AWSCLI_VERSION=2.16.7
+
+# Core build utilities only
+RUN apk update && \
+    apk add --no-cache \
+        curl \
+        wget \
+        unzip \
+        tar \
+        ca-certificates
+
+# Download Docker CLI
+RUN wget https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz -O /tmp/docker.tgz && \
+    tar xzvf /tmp/docker.tgz -C /tmp && \
+    mv /tmp/docker/docker /usr/local/bin/docker && \
+    chmod +x /usr/local/bin/docker
+
+# Download kubectl
+RUN curl -LO "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && \
+    mv kubectl /usr/local/bin/kubectl && \
+    chmod +x /usr/local/bin/kubectl
+
+# Download kind
+RUN curl -Lo /usr/local/bin/kind "https://kind.sigs.k8s.io/dl/v${KIND_VERSION}/kind-linux-amd64" && \
+    chmod +x /usr/local/bin/kind
+
+# Download Terraform
+RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
+    unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
+    mv terraform /usr/local/bin/terraform && \
+    chmod +x /usr/local/bin/terraform
+
+# Download Terragrunt
+RUN wget -O /usr/local/bin/terragrunt https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64 && \
+    chmod +x /usr/local/bin/terragrunt
+
+# Download AWS CLI v2 and extract just the binary
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWSCLI_VERSION}.zip" -o "/tmp/awscliv2.zip" && \
+    unzip /tmp/awscliv2.zip -d /tmp && \
+    /tmp/aws/install && \
+    rm -rf /tmp/aws /tmp/awscliv2.zip
+
+# Download Kafka, copy essential CLI tools only
+RUN wget https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}.tgz -O /tmp/kafka.tgz && \
+    tar -xzvf /tmp/kafka.tgz -C /tmp && \
+    cp /tmp/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}/bin/kafka-console-producer.sh /usr/local/bin/ && \
+    cp /tmp/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}/bin/kafka-console-consumer.sh /usr/local/bin/ && \
+    cp /tmp/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}/bin/kafka-topics.sh /usr/local/bin/ && \
+    chmod +x /usr/local/bin/kafka-console-producer.sh /usr/local/bin/kafka-console-consumer.sh /usr/local/bin/kafka-topics.sh && \
+    rm -rf /tmp/*
+
+# ---------- 2. Final Runtime Stage ----------
+FROM alpine:3.20
+
+# Install only needed runtime packages
+RUN apk update && \
+    apk add --no-cache \
+        sudo \
+        bash \
+        git \
+        helm \
+        go \
+        python3 \
+        py3-pip \
+        util-linux \
+        jq \
+        ncurses \
+        netcat-openbsd \
+        openrc \
+        openssh \
+        gcompat \
+        ca-certificates \
+        busybox-extras \
+        bash-completion \
+        mysql-client
+
+# Create user and setup sudo
+RUN adduser -D nagbandi && \
+    echo "nagbandi ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+USER nagbandi
+WORKDIR /home/nagbandi
+
+USER root
+
+# Copy binaries from builder stage
+COPY --from=builder /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
+COPY --from=builder /usr/local/bin/kind /usr/local/bin/kind
+COPY --from=builder /usr/local/bin/terraform /usr/local/bin/terraform
+COPY --from=builder /usr/local/bin/terragrunt /usr/local/bin/terragrunt
+COPY --from=builder /usr/local/bin/aws /usr/local/bin/aws
+COPY --from=builder /usr/local/bin/kafka-console-producer.sh /usr/local/bin/kafka-console-producer.sh
+COPY --from=builder /usr/local/bin/kafka-console-consumer.sh /usr/local/bin/kafka-console-consumer.sh
+COPY --from=builder /usr/local/bin/kafka-topics.sh /usr/local/bin/kafka-topics.sh
+
+# Switch back to user for containers
+USER nagbandi
+WORKDIR /home/nagbandi
+
+ENTRYPOINT ["/bin/bash"]

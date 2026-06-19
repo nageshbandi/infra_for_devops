@@ -1,0 +1,98 @@
+# Start with minimal Alpine
+FROM alpine:3.20
+
+# Arguments for versions
+ARG DOCKER_VERSION=25.0.3
+ARG KUBECTL_VERSION=1.30.1
+ARG KIND_VERSION=0.23.0
+ARG TERRAFORM_VERSION=1.8.5
+ARG TERRAGRUNT_VERSION=0.48.0
+ARG KAFKA_VERSION=3.6.2
+ARG KAFKA_SCALA_VERSION=2.13
+ARG AWSCLI_VERSION=2.16.7
+
+# Install core utilities and sudo
+RUN apk update && \
+    apk add --no-cache \
+        sudo \
+        bash \
+        curl \
+        wget \
+        ncurses \
+        netcat-openbsd \
+        openrc \
+        openssh \
+        git \
+        helm \
+        py3-pip \
+        go \
+        python3 \
+        util-linux \
+        jq \
+        tar \
+        gzip \
+        gcompat \
+        ca-certificates \
+        busybox-extras \
+        bash-completion \
+        mysql-client \
+        unzip
+
+# Create user 'nagbandi' with sudo privileges
+RUN adduser -D nagbandi && \
+    echo "nagbandi ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+USER nagbandi
+WORKDIR /home/nagbandi
+
+# Switch to root for installation
+USER root
+
+# Install Docker CLI (client only)
+RUN wget https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz -O /tmp/docker.tgz && \
+    tar xzvf /tmp/docker.tgz -C /tmp && \
+    mv /tmp/docker/docker /usr/local/bin/docker && \
+    chmod +x /usr/local/bin/docker && \
+    rm -rf /tmp/docker* /tmp/docker
+
+# Install kubectl
+RUN curl -LO "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && \
+    mv kubectl /usr/local/bin/kubectl && \
+    chmod +x /usr/local/bin/kubectl
+
+# Install kind
+RUN curl -Lo ./kind "https://kind.sigs.k8s.io/dl/v${KIND_VERSION}/kind-linux-amd64" && \
+    chmod +x ./kind && \
+    mv ./kind /usr/local/bin/kind
+
+# Install Terraform
+RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
+    unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
+    mv terraform /usr/local/bin/terraform && \
+    chmod +x /usr/local/bin/terraform && \
+    rm terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+
+# Install Terragrunt
+RUN wget -O /usr/local/bin/terragrunt https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64 && \
+    chmod +x /usr/local/bin/terragrunt
+
+# Install AWS CLI v2 (using ARG for version)
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-${AWSCLI_VERSION}.zip" -o "/tmp/awscliv2.zip" && \
+    unzip /tmp/awscliv2.zip -d /tmp && \
+    /tmp/aws/install && \
+    rm -rf /tmp/awscliv2.zip /tmp/aws
+
+# Install Kafka CLI tools
+RUN wget https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}.tgz -O /tmp/kafka.tgz \
+    && tar -xzvf /tmp/kafka.tgz -C /opt \
+    && ln -s /opt/kafka_${KAFKA_SCALA_VERSION}-${KAFKA_VERSION}/bin/* /usr/local/bin \
+    && rm -rf /tmp/kafka.tgz
+
+# Clean up temp files
+RUN rm -rf /tmp/*
+
+# Restore to user
+USER nagbandi
+WORKDIR /home/nagbandi
+
+ENTRYPOINT ["/bin/bash"]
